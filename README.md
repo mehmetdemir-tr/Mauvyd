@@ -5,6 +5,6 @@ Mauvyd is a system manager which is coded in C language.
 
 .pcg file example:
 
-location = /path/to/program
+''location = /path/to/program
 wait = 1 **(you can remove this line if you want)**
-watch = **non-used, we can delete it**
+watch = **non-used, we can delete it**''
