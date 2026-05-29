@@ -20,7 +20,8 @@ sudo cp mauvyctl ./rootfs/usr/bin/mauvyctl
 sudo mkdir -p ./rootfs/etc/mauvyd
 sudo mkdir -p ./rootfs/var/log/mauvyd``
 
-Add this pcg or your system wont be booted:
+### Add this pcg or your system wont be booted:
+
 /etc/mauvyd/shell.pcg:
 ``
 location=/bin/sh
