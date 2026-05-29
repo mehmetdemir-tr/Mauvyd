@@ -11,43 +11,42 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include "pati-headers/pcg.h"
+#include "mauvyd-headers/pcg.h"
 
 int main() {
     struct dirent *entry;
     pid_t pid;
     struct dirent **namelist;
-    int n = scandir("/etc/pcgconfigs", &namelist, NULL, alphasort);
+    int n = scandir("path/to/config/folder", &namelist, NULL, alphasort);
     if (n < 0) {
-        perror("[!]: pcgconfigs açılamadı, sistem devam edecek..");
-        char *shell_args[] = {"/bin/shell", NULL};
+        perror("[!]: Can't open the config folder, Continue to boot..");
+        char *shell_args[] = {"/path/to/shell", NULL};
         execv("/bin/shell", shell_args);
         while(wait(NULL) > 0);
         return 0;
     }
     printf("----------------------------------------\n");
-    printf("----- MAUVYD Konfigürasyon Sistemi -----\n");
-    printf("-------------Dosya Sistemi--------------\n");
-    printf("-------------  Açılıyor.. --------------\n");
-    mount("proc", "/proc", "proc", 0, NULL); 
-    mount("sysfs", "/sys", "sysfs", 0, NULL);
+    printf("----- MAUVYD Configuration System -----\n");
+    printf("-------------Mounting FS..--------------\n");
+    mount("proc", "/proc", "proc", 0, NULL); // Start of the Mount and the Persistence settings
+    mount("sysfs", "/sys", "sysfs", 0, NULL); // You can change these how as you want it! :)
     mount("devtmpfs", "/dev", "devtmpfs", 0, NULL);
     mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
     mkdir("/data", 0755);
-    mkdir("/data/paticommands", 0755);
-    int ret = mount("/dev/vda", "/data", "ext4", 0, NULL);
+    mkdir("/data/...", 0755); // <-- change here (example: /data/<yourcommandfolder)
+    int ret = mount("/dev/vda", "/data", "ext4", 0, NULL); // <-- you can add more mount points and device nodes much as you want.
     if (ret == 0) {
-        printf("[+]: Kalıcı depolama aktifleştirildi.\n");
+        printf("[+]: Persistence is active.\n");
     } else if (errno == EBUSY) {
-        printf("[?]: Depolama zaten bagli.\n");
+        printf("[?]: Persistence got activated already.\n");
     } else {
-        perror("[!]: Disk baglanamadi..\n");
+        perror("[!]: Can't connect the disk (persistence)\n");
     }
-    printf("[!] Hostname ayarlanıyor..\n");
-    sethostname("patios", 6);
-    putenv("PATH=/bin:/pcg-startup:/usr/bin:/data/paticommands:/lib/paticommands");
+    printf("[!] Setting up the hostname..\n");
+    sethostname("hostname_here", strlen("hostname_here")); // <-- change here
+    putenv("PATH=path/to/commands/folder");
     putenv("TERM=linux");
-    printf("Pati-2.1 Embedded Edition by PatiOS Team.\n");
+    printf("Your OS Name here (f.e PatiOS by PatiOS Team)\n");
 
     struct ifreq ifr;
     int tmp_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -75,47 +74,48 @@ for (int i = 0; i < n; i++) {
         continue;
     };
       usleep(10000);
-      printf("İşlem Bulundu: %s\n", entry->d_name);
-      char tamyol[512];
-      snprintf(tamyol, sizeof(tamyol), "/etc/pcgconfigs/%s", entry->d_name);
-    char dosyayolu[256] = {0};
-    char bekle_val[16] = {0};
-    char izle_val[16] = {0};
-    pcg_read(tamyol, "konumu", dosyayolu, sizeof(dosyayolu));
-    if (dosyayolu[0] != '/' || strstr(dosyayolu, "..") != NULL) {
-        printf("[!!!] Atlanıyor, geçersiz yol: %s\n", dosyayolu);
+      printf("Found Process: %s\n", entry->d_name);
+      char fulldst[512];
+      snprintf(fulldst, sizeof(fulldst), "/path/to/config/folder/%s", entry->d_name); // <-- Change here
+    char filedst[256] = {0};
+    char wait_val[16] = {0};
+    char watch_val[16] = {0};
+    pcg_read(fulldst, "location", filedst, sizeof(filedst));
+    if (filedst[0] != '/' || strstr(filedst, "..") != NULL) {
+        printf("[!!!] Skipping this, wrong folder location: %s\n", filedst);
         free(namelist[i]);
         continue;
     }
-    pcg_read(tamyol, "bekle", bekle_val, sizeof(bekle_val));
-    pcg_read(tamyol, "izle", izle_val, sizeof(izle_val));
+    pcg_read(fulldst, "wait", wait_val, sizeof(wait_val));
+    pcg_read(fulldst, "watch", watch_val, sizeof(watch_val));
     char *args[] = {NULL, NULL};
-    args[0] = dosyayolu;
-    int bekle = (strcmp(bekle_val, "1") == 0);
-    int izle = (strcmp(izle_val, "1") == 0);
-        if (izle) printf("[+] %s işlemi Karabaş Tarafından izlenecektir.\n", dosyayolu);
+    args[0] = filedst;
+    int wait_flag = (strcmp(wait_val, "1") == 0);
+    int watch_flag = (strcmp(watch_val, "1") == 0);
 
 
-      pid = fork(); // ÇATALLAMA ZAMANII!
+      pid = fork(); // FORK TIME!
 
     if (pid == -1) {
-        perror("Çatalı Çatalladılar!1 (fork failed)");
+        perror("Fork failed.");
         exit(EXIT_FAILURE);
         }
-    if (pid > 0 && bekle == 1) {
+    if (pid > 0 && wait_flag == 1) {
         usleep(100000);
-        wait(NULL);
+        waitpid(pid, NULL, 0);
         }
 
     if (pid == 0) {
-        printf("Çocuk işlem şu servisi başlatıyor: %s\n", dosyayolu);
-        execv(dosyayolu, args);
-        perror("Oops, Pati hastalandı!");
+        printf("Child Process starting this service: %s\n", filedst);
+        execv(filedst, args);
+        perror("Oops, process got sick! (cant run this service)");
         exit(EXIT_FAILURE);
         }
 free(namelist[i]);
 }
 free(namelist);
 signal(SIGCHLD, SIG_IGN);
-while(1) pause();
+sigset_t mask;
+sigemptyset(&mask);
+sigsuspend(&mask);
 }
